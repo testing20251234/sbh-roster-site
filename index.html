@@ -46,6 +46,8 @@
   .weekhead .tag{font-size:12px;background:var(--accent);color:#fff;border-radius:7px;padding:1px 8px;margin-left:8px;vertical-align:1px}
   .legend{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 4px;font-size:12.5px;color:var(--muted)}
   .legend span{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:3px 9px}
+  .exchip{display:inline-block;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:2px 8px;margin:3px 5px 3px 0;font-size:12.5px}
+  .exchip a{color:var(--bad);text-decoration:none;font-weight:700;margin-left:6px}
   .panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-top:22px}
   .panel h2{font-size:17px;margin:0 0 10px;font-weight:600}
   .row{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end}
@@ -216,7 +218,8 @@ async function render(){
       const exHrs = E.filter(e=>e.staff_name===s.name && e.shift_date>=dates[0] && e.shift_date<=dates[6])
                      .reduce((a,e)=>a+Number(e.hours),0);
       const hrs = Math.round((shiftHrs + exHrs)*10)/10;
-      html += `<td class="hrs">${hrs}<span class="muted">/${Math.round(s.contracted_hours)}</span></td></tr>`;
+      // hours total only for the tracked full-timers; part-timers' totals are intentionally hidden
+      html += `<td class="hrs">${s.ledger_tracked ? `${hrs}<span class="muted">/${Math.round(s.contracted_hours)}</span>` : ''}</td></tr>`;
     }
     html += `</tbody></table></div>`;
     cur = addDays(cur,7);
@@ -227,9 +230,17 @@ async function render(){
 }
 
 function renderExtras(E){
-  document.getElementById("extraList").innerHTML = E.length
-    ? "Extra logged: " + E.map(e=>`${e.staff_name} ${e.shift_date.slice(5)} ${e.start_time}–${e.end_time} (${e.hours}h)`).join(" · ")
-    : "";
+  const el = document.getElementById("extraList");
+  if(!E.length){ el.innerHTML = ""; return; }
+  el.innerHTML = "Extra logged: " + E.map(e=>
+    `<span class="exchip">${e.staff_name} ${e.shift_date.slice(5)} ${e.start_time}–${e.end_time} (${e.hours}h)`
+    + ` <a href="#" title="remove" onclick="removeExtra(${e.id});return false">✕</a></span>`).join("");
+}
+async function removeExtra(id){
+  if(!confirm("Remove this extra shift?")) return;
+  await sb.from("roster_extra_shift").delete().eq("id", id);
+  toast("Extra removed");
+  render();
 }
 
 function spanHours(a,b){ const [ah,am]=a.split(":").map(Number),[bh,bm]=b.split(":").map(Number); let m=(bh*60+bm)-(ah*60+am); if(m<=0)m+=1440; return Math.round(m/60*10)/10; }
