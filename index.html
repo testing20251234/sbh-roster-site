@@ -244,7 +244,7 @@ async function removeExtra(id){
 }
 
 function spanHours(a,b){ const [ah,am]=a.split(":").map(Number),[bh,bm]=b.split(":").map(Number); let m=(bh*60+bm)-(ah*60+am); if(m<=0)m+=1440; return Math.round(m/60*10)/10; }
-function esHours(a,b){ return Math.max(0, Math.round((spanHours(a,b)-1)*10)/10); }   // scheduled shift range incl. 1h unpaid break
+function esHours(a,b){ return spanHours(a,b); }   // extras/ES = raw duration (no break)
 
 async function setCell(name,d,code){
   if(code === "ES"){                                                  // a custom-time shift in this cell
