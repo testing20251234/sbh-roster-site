@@ -39,6 +39,12 @@
   .c-PM{background:#f3e7e4}.c-PM select{color:#a8483a}
   .c-SUN{background:#ece6f1}.c-SUN select{color:#6b4e8a}
   .c-off{background:#fffdf9}.c-off select{color:#cbbfac}
+  .win{display:block;color:var(--accent);font-size:9.5px;font-weight:600;line-height:1.1;margin-top:-3px;padding-bottom:2px}
+  .weekhead{font-weight:600;font-size:16px;margin:28px 0 9px;color:var(--muted);padding-bottom:5px;border-bottom:1px solid var(--line)}
+  .weekhead.now{color:var(--accent)}
+  .weekhead .tag{font-size:12px;background:var(--accent);color:#fff;border-radius:7px;padding:1px 8px;margin-left:8px;vertical-align:1px}
+  .legend{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 4px;font-size:12.5px;color:var(--muted)}
+  .legend span{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:3px 9px}
   .panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-top:22px}
   .panel h2{font-size:17px;margin:0 0 10px;font-weight:600}
   .row{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end}
@@ -67,13 +73,12 @@
   <!-- app -->
   <div id="app" style="display:none">
     <header>
-      <h1>SBH Roster <span class="sub" id="weekLabel"></span></h1>
-      <div class="nav">
-        <button class="nav" onclick="shiftWeek(-7)">‹ prev</button>
-        <button class="nav" onclick="shiftWeek(7)">next ›</button>
-      </div>
+      <h1>SBH Roster <span class="sub">full schedule</span></h1>
     </header>
-    <p class="lede">Tap any cell to change a shift or set someone off. Changes save instantly. This is the working roster (a scratchpad) — the owner locks the final record each month.</p>
+    <p class="lede">Tap any cell to change a shift or set someone off — changes save instantly. The time under each shift is when it runs. Scroll down for every week. This is the working roster (a scratchpad); the owner locks the final record each month.</p>
+    <div class="legend">
+      <span><b>AM</b> 07:00–15:00</span><span><b>FLEX</b> 12:00–20:00</span><span><b>PM</b> 13:30–21:30</span><span><b>SUN</b> 10:00–18:00</span>
+    </div>
 
     <div id="sheet"></div>
 
@@ -108,7 +113,7 @@ const DOW = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
 const TIMES = {AM:"07:00–15:00",FLEX:"12:00–20:00",PM:"13:30–21:30",SUN:"10:00–18:00"};
 
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
-let staff = [], weekStart = mondayOf(new Date("2026-07-06"));
+let staff = [], scrolled = false;
 
 function mondayOf(d){ d=new Date(d); const wd=(d.getDay()+6)%7; d.setDate(d.getDate()-wd); return d; }
 function iso(d){ return d.toISOString().slice(0,10); }
@@ -129,43 +134,63 @@ async function init(){
   staff = data || [];
   const sel = document.getElementById("exStaff");
   sel.innerHTML = staff.map(s=>`<option>${s.name}</option>`).join("");
-  document.getElementById("exDate").value = iso(weekStart);
+  document.getElementById("exDate").value = iso(new Date());
   render();
 }
-function shiftWeek(n){ weekStart = addDays(weekStart,n); render(); }
+
+function fmtday(d){ const [y,m,dd]=d.split("-"); return `${dd}/${m}`; }
 
 async function render(){
-  const dates = [...Array(7)].map((_,i)=>iso(addDays(weekStart,i)));
-  document.getElementById("weekLabel").textContent = `week of ${dates[0]}`;
+  // pull the whole published roster — every week on one scrollable page (no paging)
   const [{data:asg},{data:ext}] = await Promise.all([
-    sb.from("roster_assignment").select("*").gte("shift_date",dates[0]).lte("shift_date",dates[6]),
-    sb.from("roster_extra_shift").select("*").gte("shift_date",dates[0]).lte("shift_date",dates[6])
+    sb.from("roster_assignment").select("*").order("shift_date"),
+    sb.from("roster_extra_shift").select("*").order("shift_date")
   ]);
   const A = asg||[], E = ext||[];
-  const shiftOf = (name,d)=>{ const r=A.find(a=>a.staff_name===name&&a.shift_date===d); return r?r.shift_code:null; };
+  const rowOf = (name,d)=> A.find(a=>a.staff_name===name&&a.shift_date===d) || null;
+  const sheet = document.getElementById("sheet");
+  if(!A.length){ sheet.innerHTML = `<p class="muted" style="padding:20px 0">No roster published yet.</p>`; renderExtras(E); return; }
 
-  let html = `<div style="overflow-x:auto"><table><thead><tr><th>Person</th>`;
-  dates.forEach((d,i)=>html+=`<th>${DOW[i]}<small>${d.slice(8)}</small></th>`);
-  html += `<th>Hours</th></tr></thead><tbody>`;
-  for(const s of staff){
-    let shifts=0;
-    html += `<tr><td class="who">${s.name}</td>`;
-    dates.forEach(d=>{
-      const code = shiftOf(s.name,d); if(code) shifts++;
-      html += `<td class="cell c-${code||'off'}"><select onchange="setCell('${s.name}','${d}',this.value)">
-        <option value="off"${!code?' selected':''}>—</option>`;
-      CODES.forEach(c=>html+=`<option value="${c}"${code===c?' selected':''}>${c}</option>`);
-      html += `</select></td>`;
-    });
-    const exHrs = E.filter(e=>e.staff_name===s.name).reduce((a,e)=>a+Number(e.hours),0);
-    const hrs = shifts*7 + exHrs;
-    html += `<td class="hrs">${hrs}<span class="muted">/${Math.round(s.contracted_hours)}</span></td></tr>`;
+  const sorted = A.map(a=>a.shift_date).sort();
+  let cur = mondayOf(new Date(sorted[0])), last = mondayOf(new Date(sorted[sorted.length-1]));
+  const thisMon = iso(mondayOf(new Date()));
+  let html = "";
+  while(cur <= last){
+    const dates = [...Array(7)].map((_,i)=>iso(addDays(cur,i)));
+    const now = dates[0] === thisMon;
+    html += `<div class="weekhead${now?' now':''}" ${now?'id="thisweek"':''}>Week of ${fmtday(dates[0])}${now?'<span class="tag">this week</span>':''}</div>`;
+    html += `<div style="overflow-x:auto"><table><thead><tr><th>Person</th>`;
+    dates.forEach((d,i)=>html+=`<th>${DOW[i]}<small>${d.slice(8)}</small></th>`);
+    html += `<th>Hours</th></tr></thead><tbody>`;
+    for(const s of staff){
+      let shiftHrs=0;
+      html += `<tr><td class="who">${s.name}</td>`;
+      dates.forEach(d=>{
+        const r = rowOf(s.name,d); const code = r?r.shift_code:null;
+        if(code) shiftHrs += (r.hours!=null ? Number(r.hours) : 7);          // custom window hours, else standard 7h
+        const win = (r && r.start_time) ? `${r.start_time}–${r.end_time}`     // custom window
+                  : (code ? TIMES[code] : null);                             // else the standard time for that shift
+        html += `<td class="cell c-${code||'off'}"><select onchange="setCell('${s.name}','${d}',this.value)">
+          <option value="off"${!code?' selected':''}>—</option>`;
+        CODES.forEach(c=>html+=`<option value="${c}"${code===c?' selected':''}>${c}</option>`);
+        html += `</select>${win?`<span class="win">${win}</span>`:''}</td>`;
+      });
+      const exHrs = E.filter(e=>e.staff_name===s.name && e.shift_date>=dates[0] && e.shift_date<=dates[6])
+                     .reduce((a,e)=>a+Number(e.hours),0);
+      const hrs = Math.round((shiftHrs + exHrs)*10)/10;
+      html += `<td class="hrs">${hrs}<span class="muted">/${Math.round(s.contracted_hours)}</span></td></tr>`;
+    }
+    html += `</tbody></table></div>`;
+    cur = addDays(cur,7);
   }
-  html += `</tbody></table></div>`;
-  document.getElementById("sheet").innerHTML = html;
+  sheet.innerHTML = html;
+  renderExtras(E);
+  if(!scrolled){ scrolled = true; const el=document.getElementById("thisweek"); if(el) el.scrollIntoView({behavior:"smooth",block:"start"}); }
+}
 
+function renderExtras(E){
   document.getElementById("extraList").innerHTML = E.length
-    ? "Extra this week: " + E.map(e=>`${e.staff_name} ${e.shift_date.slice(5)} ${e.start_time}–${e.end_time} (${e.hours}h)`).join(" · ")
+    ? "Extra logged: " + E.map(e=>`${e.staff_name} ${e.shift_date.slice(5)} ${e.start_time}–${e.end_time} (${e.hours}h)`).join(" · ")
     : "";
 }
 
