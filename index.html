@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SBH Roster</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#f6f1ea;--card:#fffdf9;--ink:#2c2218;--muted:#8a7d6c;--accent:#8b5a3c;--line:#e6ddd0;--soft:#efe7da;--good:#3f7d4e;--warn:#b07c2e;--bad:#a8483a}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:'Newsreader',Iowan,Charter,Georgia,serif;line-height:1.5;padding:0 16px 60px}
+  .wrap{max-width:980px;margin:0 auto}
+  header{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:20px 0 12px;border-bottom:1px solid var(--line);margin-bottom:20px}
+  h1{font-weight:600;font-size:24px;margin:0}
+  h1 .sub{color:var(--muted);font-size:15px;font-weight:400;margin-left:8px}
+  .nav a,button.nav{display:inline-block;text-decoration:none;color:var(--accent);border:1px solid var(--line);background:var(--card);border-radius:10px;padding:6px 12px;font-size:15px;margin-left:6px;cursor:pointer;font-family:inherit}
+  .lede{color:var(--muted);margin:0 0 16px;font-size:15px}
+  /* gate */
+  #gate{max-width:340px;margin:14vh auto 0;text-align:center}
+  #gate h1{font-size:26px;margin-bottom:6px}
+  #gate p{color:var(--muted)}
+  #gate input{font-family:inherit;font-size:20px;text-align:center;letter-spacing:.3em;width:100%;padding:12px;border:1px solid var(--line);border-radius:12px;background:#fff;margin:14px 0}
+  #gate button{font-family:inherit;font-size:16px;background:var(--accent);color:#fff;border:none;border-radius:12px;padding:11px 22px;cursor:pointer;width:100%}
+  #gate .err{color:var(--bad);font-size:14px;min-height:20px}
+  /* sheet */
+  table{width:100%;border-collapse:separate;border-spacing:0;background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;table-layout:fixed}
+  th,td{padding:7px 8px;text-align:center;border-bottom:1px solid var(--line);border-right:1px solid var(--line)}
+  th:last-child,td:last-child{border-right:none}
+  tbody tr:last-child td{border-bottom:none}
+  thead th{background:var(--soft);font-weight:600;font-size:14px}
+  thead th small{display:block;color:var(--muted);font-weight:400;font-size:11px}
+  td.who{text-align:left;font-weight:600;white-space:nowrap;background:var(--soft)}
+  td.hrs{font-variant-numeric:tabular-nums;font-weight:600;font-size:13px}
+  td.cell{padding:2px}
+  select{width:100%;border:none;background:transparent;text-align:center;font-family:inherit;font-size:14px;font-weight:600;color:var(--ink);padding:7px 2px;border-radius:7px;cursor:pointer;-webkit-appearance:none;appearance:none}
+  .c-AM{background:#eaf2ea}.c-AM select{color:#3f7d4e}
+  .c-FLEX{background:#fbf1e4}.c-FLEX select{color:#b07c2e}
+  .c-PM{background:#f3e7e4}.c-PM select{color:#a8483a}
+  .c-SUN{background:#ece6f1}.c-SUN select{color:#6b4e8a}
+  .c-off{background:#fffdf9}.c-off select{color:#cbbfac}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-top:22px}
+  .panel h2{font-size:17px;margin:0 0 10px;font-weight:600}
+  .row{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end}
+  label{display:block;font-size:12px;color:var(--muted);margin-bottom:3px}
+  input,.row select{font-family:inherit;font-size:15px;border:1px solid var(--line);border-radius:9px;padding:7px 9px;background:#fff;color:var(--ink)}
+  .row select{-webkit-appearance:auto;appearance:auto;text-align:left;font-weight:400}
+  .btn{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:8px 16px;font-size:15px;cursor:pointer;font-family:inherit}
+  .muted{color:var(--muted)}.small{font-size:13px}
+  .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:9px 16px;border-radius:10px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none}
+  .toast.show{opacity:.92}
+  footer{color:var(--muted);font-size:12px;margin-top:30px;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- PIN gate -->
+  <div id="gate">
+    <h1>SBH Roster</h1>
+    <p>Enter the staff PIN to view and edit the roster.</p>
+    <input id="pin" type="password" inputmode="numeric" placeholder="••••" autofocus>
+    <div class="err" id="gateErr"></div>
+    <button onclick="checkPin()">Enter</button>
+  </div>
+
+  <!-- app -->
+  <div id="app" style="display:none">
+    <header>
+      <h1>SBH Roster <span class="sub" id="weekLabel"></span></h1>
+      <div class="nav">
+        <button class="nav" onclick="shiftWeek(-7)">‹ prev</button>
+        <button class="nav" onclick="shiftWeek(7)">next ›</button>
+      </div>
+    </header>
+    <p class="lede">Tap any cell to change a shift or set someone off. Changes save instantly. This is the working roster (a scratchpad) — the owner locks the final record each month.</p>
+
+    <div id="sheet"></div>
+
+    <div class="panel">
+      <h2>Add an extra shift</h2>
+      <p class="small muted" style="margin-top:-4px">Stayed longer or covered? Log it here — the hours count toward your total.</p>
+      <div class="row">
+        <div><label>Person</label><select id="exStaff"></select></div>
+        <div><label>Date</label><input type="date" id="exDate"></div>
+        <div><label>From</label><input type="time" id="exFrom"></div>
+        <div><label>To</label><input type="time" id="exTo"></div>
+        <div><label>Note</label><input type="text" id="exNote" placeholder="cover / OT"></div>
+        <button class="btn" onclick="addExtra()">Add</button>
+      </div>
+      <div id="extraList" class="small muted" style="margin-top:10px"></div>
+    </div>
+
+    <footer>SBH Roster · working scratchpad · generated by the solver, swaps by staff</footer>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// ---- config (anon key is public-safe; RLS scopes it to the roster_* scratchpad only) ----
+const SUPABASE_URL = "https://geheirnfbhqnhrjmrrax.supabase.co";
+const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdlaGVpcm5mYmhxbmhyam1ycmF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU3NjQ2MzEsImV4cCI6MjA5MTM0MDYzMX0.vSlZoPo0nhHRMPARJZHZWyuWFyY2pb4Ck3YzwEjVslQ";
+const STAFF_PIN = "739204";               // single shared 6-digit PIN — rotate here from time to time
+const CODES = ["AM","FLEX","PM","SUN"];
+const DOW = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+const TIMES = {AM:"07:00–15:00",FLEX:"12:00–20:00",PM:"13:30–21:30",SUN:"10:00–18:00"};
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+let staff = [], weekStart = mondayOf(new Date("2026-07-06"));
+
+function mondayOf(d){ d=new Date(d); const wd=(d.getDay()+6)%7; d.setDate(d.getDate()-wd); return d; }
+function iso(d){ return d.toISOString().slice(0,10); }
+function addDays(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); return x; }
+function toast(m){ const t=document.getElementById("toast"); t.textContent=m; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"),1400); }
+
+function checkPin(){
+  if(document.getElementById("pin").value === STAFF_PIN){
+    document.getElementById("gate").style.display="none";
+    document.getElementById("app").style.display="block";
+    init();
+  } else { document.getElementById("gateErr").textContent="Wrong PIN — try again."; }
+}
+document.getElementById("pin").addEventListener("keydown",e=>{ if(e.key==="Enter") checkPin(); });
+
+async function init(){
+  const {data} = await sb.from("roster_staff").select("*").eq("active",true).order("id");
+  staff = data || [];
+  const sel = document.getElementById("exStaff");
+  sel.innerHTML = staff.map(s=>`<option>${s.name}</option>`).join("");
+  document.getElementById("exDate").value = iso(weekStart);
+  render();
+}
+function shiftWeek(n){ weekStart = addDays(weekStart,n); render(); }
+
+async function render(){
+  const dates = [...Array(7)].map((_,i)=>iso(addDays(weekStart,i)));
+  document.getElementById("weekLabel").textContent = `week of ${dates[0]}`;
+  const [{data:asg},{data:ext}] = await Promise.all([
+    sb.from("roster_assignment").select("*").gte("shift_date",dates[0]).lte("shift_date",dates[6]),
+    sb.from("roster_extra_shift").select("*").gte("shift_date",dates[0]).lte("shift_date",dates[6])
+  ]);
+  const A = asg||[], E = ext||[];
+  const shiftOf = (name,d)=>{ const r=A.find(a=>a.staff_name===name&&a.shift_date===d); return r?r.shift_code:null; };
+
+  let html = `<div style="overflow-x:auto"><table><thead><tr><th>Person</th>`;
+  dates.forEach((d,i)=>html+=`<th>${DOW[i]}<small>${d.slice(8)}</small></th>`);
+  html += `<th>Hours</th></tr></thead><tbody>`;
+  for(const s of staff){
+    let shifts=0;
+    html += `<tr><td class="who">${s.name}</td>`;
+    dates.forEach(d=>{
+      const code = shiftOf(s.name,d); if(code) shifts++;
+      html += `<td class="cell c-${code||'off'}"><select onchange="setCell('${s.name}','${d}',this.value)">
+        <option value="off"${!code?' selected':''}>—</option>`;
+      CODES.forEach(c=>html+=`<option value="${c}"${code===c?' selected':''}>${c}</option>`);
+      html += `</select></td>`;
+    });
+    const exHrs = E.filter(e=>e.staff_name===s.name).reduce((a,e)=>a+Number(e.hours),0);
+    const hrs = shifts*7 + exHrs;
+    html += `<td class="hrs">${hrs}<span class="muted">/${Math.round(s.contracted_hours)}</span></td></tr>`;
+  }
+  html += `</tbody></table></div>`;
+  document.getElementById("sheet").innerHTML = html;
+
+  document.getElementById("extraList").innerHTML = E.length
+    ? "Extra this week: " + E.map(e=>`${e.staff_name} ${e.shift_date.slice(5)} ${e.start_time}–${e.end_time} (${e.hours}h)`).join(" · ")
+    : "";
+}
+
+async function setCell(name,d,code){
+  await sb.from("roster_assignment").delete().eq("staff_name",name).eq("shift_date",d);
+  if(CODES.includes(code))
+    await sb.from("roster_assignment").insert({shift_date:d,shift_code:code,staff_name:name,source:"staff"});
+  toast("Saved");
+  render();
+}
+
+function spanHours(a,b){ const [ah,am]=a.split(":").map(Number),[bh,bm]=b.split(":").map(Number); let m=(bh*60+bm)-(ah*60+am); if(m<=0)m+=1440; return Math.round(m/60*10)/10; }
+async function addExtra(){
+  const name=document.getElementById("exStaff").value, d=document.getElementById("exDate").value;
+  const f=document.getElementById("exFrom").value, t=document.getElementById("exTo").value;
+  if(!d||!f||!t){ toast("Fill date + times"); return; }
+  await sb.from("roster_extra_shift").insert({staff_name:name,shift_date:d,start_time:f,end_time:t,hours:spanHours(f,t),note:document.getElementById("exNote").value||null});
+  document.getElementById("exNote").value="";
+  toast("Extra shift added");
+  render();
+}
+</script>
+</body>
+</html>
